@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+OUTDIR="heic_out"
+INPUT="."
+JOBS=""
+
+usage() {
+  cat <<EOF
+Usage:
+  heic-batch [options] [directory]
+
+Options:
+  -j N     Number of parallel jobs (default: half of CPU cores)
+  -h       Show help
+
+Example:
+  heic-batch
+  heic-batch -j 8 .
+  heic-batch photos/
+EOF
+  exit 1
+}
+
+# ----------------------------
+# Parse CLI args
+# ----------------------------
+while getopts ":j:h" opt; do
+  case $opt in
+    j) JOBS="$OPTARG" ;;
+    h) usage ;;
+    *) usage ;;
+  esac
+done
+
+shift $((OPTIND - 1))
+
+if [[ $# -eq 1 ]]; then
+  INPUT="$1"
+elif [[ $# -gt 1 ]]; then
+  usage
+fi
+
+cd "$INPUT" || { echo "Invalid directory"; exit 1; }
+
+# ----------------------------
+# CPU detection
+# ----------------------------
+if [[ -z "${JOBS}" ]]; then
+  if command -v sysctl >/dev/null 2>&1; then
+    # macOS
+    TOTAL_CPUS=$(sysctl -n hw.ncpu)
+  else
+    # fallback (Linux)
+    TOTAL_CPUS=$(nproc 2>/dev/null || echo 4)
+  fi
+
+  JOBS=$(( TOTAL_CPUS / 2 ))
+
+  # ensure at least 1 job
+  if [[ "$JOBS" -lt 1 ]]; then
+    JOBS=1
+  fi
+fi
+
+# ----------------------------
+# Safety + file detection
+# ----------------------------
+shopt -s nullglob
+files=( *.ARW )
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  echo "No .ARW files found."
+  exit 1
+fi
+
+mkdir -p "$OUTDIR"
+export OUTDIR
+
+echo "Found ${#files[@]} files"
+echo "Using $JOBS parallel jobs (auto = half CPU cores)"
+echo "Output: $OUTDIR"
+
+# ----------------------------
+# Parallel processing
+# ----------------------------
+printf "%s\n" "${files[@]}" | parallel -j "$JOBS" --bar --eta '
+  f={}
+  base=${f%.*}
+  out="$OUTDIR/$base.heic"
+
+  # Skip if already done
+  [[ -f "$out" ]] && echo "Skipping $f" && exit 0
+
+  echo "→ $f"
+
+  sips -s format heic "$f" --out "$out"
+
+  exiftool \
+    -tagsFromFile "$f" \
+    -all:all \
+    -icc_profile \
+    -overwrite_original \
+    "$out"
+'
