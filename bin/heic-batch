@@ -5,6 +5,7 @@ set -euo pipefail
 OUTDIR="heic_out"
 INPUT="."
 JOBS=""
+QUALITY="100"
 
 usage() {
   cat <<EOF
@@ -13,11 +14,12 @@ Usage:
 
 Options:
   -j N     Number of parallel jobs (default: half of CPU cores)
+  -q N     Output HEIC quality 0-100 (default: 100)
   -h       Show help
 
 Example:
   heic-batch
-  heic-batch -j 8 .
+  heic-batch -j 8 -q 85 .
   heic-batch photos/
 EOF
   exit 1
@@ -26,9 +28,10 @@ EOF
 # ----------------------------
 # Parse CLI args
 # ----------------------------
-while getopts ":j:h" opt; do
+while getopts ":j:q:h" opt; do
   case $opt in
     j) JOBS="$OPTARG" ;;
+    q) QUALITY="$OPTARG" ;;
     h) usage ;;
     *) usage ;;
   esac
@@ -67,20 +70,20 @@ fi
 # ----------------------------
 # Safety + file detection
 # ----------------------------
-shopt -s nullglob
-files=( *.ARW )
+shopt -s nullglob nocaseglob
+files=( *.arw *.jpg *.jpeg )
 
 if [[ ${#files[@]} -eq 0 ]]; then
-  echo "No .ARW files found."
+  echo "No .ARW or .JPG files found."
   exit 1
 fi
 
 mkdir -p "$OUTDIR"
-export OUTDIR
+export OUTDIR QUALITY
 
 echo "Found ${#files[@]} files"
 echo "Using $JOBS parallel jobs (auto = half CPU cores)"
-echo "Output: $OUTDIR"
+echo "Output: $OUTDIR (Quality: $QUALITY)"
 
 # ----------------------------
 # Parallel processing
@@ -95,12 +98,14 @@ printf "%s\n" "${files[@]}" | parallel -j "$JOBS" --bar --eta '
 
   echo "→ $f"
 
-  sips -s format heic "$f" --out "$out"
+  sips -s format heic -s formatOptions "$QUALITY" "$f" --out "$out"
 
   exiftool \
     -tagsFromFile "$f" \
     -all:all \
     -icc_profile \
+    "-FileCreateDate<FileCreateDate" \
+    "-FileModifyDate<FileModifyDate" \
     -overwrite_original \
     "$out"
 '
