@@ -27,19 +27,20 @@ jobs:
         run: |
           echo "sha=$(shasum -a 256 heic-batch.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
 
-      - name: Checkout Homebrew tap repo
+      - name: Checkout Homebrew tools repo
         uses: actions/checkout@v4
         with:
           repository: spicydev/homebrew-tools
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: Formula
+	  path: tap
 
       - name: Update Homebrew formula
         run: |
           VERSION=${GITHUB_REF_NAME}
           SHA=${{ steps.sha.outputs.sha }}
-
-          FILE=heic-batch.rb
+	
+	  ls -l
+          FILE=tap/Formula/heic-batch.rb
 
           sed -i '' "s/{{VERSION}}/${VERSION#v}/g" "$FILE"
           sed -i '' "s/{{SHA256}}/${SHA}/g" "$FILE"
