@@ -5,7 +5,7 @@ set -euo pipefail
 OUTDIR="heic_out"
 INPUT="."
 JOBS=""
-QUALITY="100"
+QUALITY=""
 
 usage() {
   cat <<EOF
@@ -14,7 +14,7 @@ Usage:
 
 Options:
   -j N     Number of parallel jobs (default: half of CPU cores)
-  -q N     Output HEIC quality 0-100 (default: 100)
+  -q N     Output HEIC quality 0-100 (default: sips default)
   -h       Show help
 
 Example:
@@ -83,7 +83,7 @@ export OUTDIR QUALITY
 
 echo "Found ${#files[@]} files"
 echo "Using $JOBS parallel jobs (auto = half CPU cores)"
-echo "Output: $OUTDIR (Quality: $QUALITY)"
+echo "Output: $OUTDIR (Quality: ${QUALITY:-sips default})"
 
 # ----------------------------
 # Parallel processing
@@ -98,7 +98,11 @@ printf "%s\n" "${files[@]}" | parallel -j "$JOBS" --bar --eta '
 
   echo "→ $f"
 
-  sips -s format heic -s formatOptions "$QUALITY" "$f" --out "$out"
+  if [[ -n "$QUALITY" ]]; then
+    sips -s format heic -s formatOptions "$QUALITY" "$f" --out "$out"
+  else
+    sips -s format heic "$f" --out "$out"
+  fi
 
   exiftool \
     -tagsFromFile "$f" \

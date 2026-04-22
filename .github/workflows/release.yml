@@ -32,14 +32,14 @@ jobs:
         with:
           repository: spicydev/homebrew-tools
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: tap
+          path: Formula
 
       - name: Update Homebrew formula
         run: |
           VERSION=${GITHUB_REF_NAME}
           SHA=${{ steps.sha.outputs.sha }}
 
-          FILE=tap/Formula/heic-batch.rb
+          FILE=heic-batch.rb
 
           sed -i '' "s/{{VERSION}}/${VERSION#v}/g" "$FILE"
           sed -i '' "s/{{SHA256}}/${SHA}/g" "$FILE"
