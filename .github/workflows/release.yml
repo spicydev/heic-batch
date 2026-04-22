@@ -17,10 +17,10 @@ jobs:
         id: vars
         run: echo "version=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Create tarball
+      - name: Download GitHub Tarball
         run: |
           VERSION=${GITHUB_REF_NAME}
-          git archive --format=tar.gz --output heic-batch.tar.gz HEAD
+          curl -sL "https://github.com/spicydev/heic-batch/archive/refs/tags/${VERSION}.tar.gz" -o heic-batch.tar.gz
 
       - name: Compute SHA256
         id: sha
@@ -32,18 +32,19 @@ jobs:
         with:
           repository: spicydev/homebrew-tools
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-	  path: tap
+          path: tap
 
       - name: Update Homebrew formula
         run: |
           VERSION=${GITHUB_REF_NAME}
           SHA=${{ steps.sha.outputs.sha }}
-	
-	  ls -l
+
+          ls -l
           FILE=tap/Formula/heic-batch.rb
 
-          sed -i '' "s/{{VERSION}}/${VERSION#v}/g" "$FILE"
-          sed -i '' "s/{{SHA256}}/${SHA}/g" "$FILE"
+          sed -i '' 's|url ".*"|url "https://github.com/spicydev/heic-batch/archive/refs/tags/'"${VERSION}"'.tar.gz"|' "$FILE"
+          sed -i '' 's/version ".*"/version "'"${VERSION#v}"'"/' "$FILE"
+          sed -i '' 's/sha256 ".*"/sha256 "'"${SHA}"'"/' "$FILE"
 
       - name: Commit and push formula update
         run: |
